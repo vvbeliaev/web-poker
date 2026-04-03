@@ -94,3 +94,8 @@ def test_best_hand_from_7_cards():
 def test_hand_name():
     score = evaluate_5(cards('Ah', 'Ad', 'Ac', 'As', '2h'))
     assert hand_name(score) == "Four of a Kind"
+
+
+def test_evaluate_5_rejects_wrong_count():
+    with pytest.raises(ValueError, match="exactly 5 cards"):
+        evaluate_5(cards('Ah', 'Kh', 'Qh'))

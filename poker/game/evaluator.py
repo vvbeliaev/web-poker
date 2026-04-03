@@ -33,6 +33,8 @@ _HAND_NAMES = {
 
 def evaluate_5(cards: list[Card]) -> tuple:
     """Return a comparable score tuple for exactly 5 cards."""
+    if len(cards) != 5:
+        raise ValueError(f"evaluate_5 requires exactly 5 cards, got {len(cards)}")
     ranks = [c.rank for c in cards]
     suits = [c.suit for c in cards]
     is_flush = len(set(suits)) == 1
