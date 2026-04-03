@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 from poker.server import sio, rooms
-from poker.game.tournament import Room, Player, PlayerStatus, RoomState
+from poker.game.tournament import Room, Player, PlayerStatus, RoomState, BLIND_SCHEDULE
 from poker.game.engine import Hand
 
 
@@ -64,9 +64,60 @@ async def _blind_timer_loop(room_id: str) -> None:
         if room.seconds_until_next_blind() <= 1:
             room.blind_level += 1
             room.blind_timer_start = time.time()
+            if room.blind_level >= len(BLIND_SCHEDULE) - 1:
+                # Already at max level, no more increases needed
+                sb, bb = room.current_blinds()
+                await sio.emit('blind_up', {'level': room.blind_level, 'sb': sb, 'bb': bb},
+                               room=room_id)
+                await _broadcast_room_state(room)
+                break
             sb, bb = room.current_blinds()
             await sio.emit('blind_up', {'level': room.blind_level, 'sb': sb, 'bb': bb},
                            room=room_id)
+            await _broadcast_room_state(room)
+
+
+async def _auto_fold_disconnected(sid: str, room_id: str) -> None:
+    """Auto-fold a disconnected player after DISCONNECT_FOLD_SECONDS."""
+    from poker.game.tournament import DISCONNECT_FOLD_SECONDS
+    await asyncio.sleep(DISCONNECT_FOLD_SECONDS)
+    room = rooms.get(room_id)
+    if not room or room.state != RoomState.PLAYING:
+        return
+    player = room.get_player(sid)
+    if not player or player.disconnected_at is None:
+        return  # reconnected or already eliminated
+    # Only act if it's their turn
+    if room.action_sid == sid and room.current_hand:
+        result = room.current_hand.apply_action(sid, 'fold')
+        room.hand_phase = room.current_hand.phase
+        room.community_cards = room.current_hand.community_cards
+        room.current_bet = room.current_hand.current_bet
+        if result:
+            for winner in result['winners']:
+                await sio.emit('hand_result', {
+                    'winner_sid': winner['sid'],
+                    'winner_name': winner['name'],
+                    'amount': winner['amount'],
+                    'hand_name': winner['hand_name'],
+                    'community_cards': result['community_cards'],
+                }, room=room_id)
+            alive = [p for p in room.players if p.status != PlayerStatus.ELIMINATED]
+            if len(alive) <= 1:
+                if alive:
+                    room.state = RoomState.FINISHED
+                    await sio.emit('winner', {'player_name': alive[0].name,
+                                              'player_sid': alive[0].sid}, room=room_id)
+                await _broadcast_room_state(room)
+                return
+            room.dealer_pos = (room.dealer_pos + 1) % len(alive)
+            room.current_hand = None
+            await _broadcast_room_state(room)
+            await asyncio.sleep(3)
+            await _start_new_hand(room)
+        else:
+            current = room.current_hand.current_player()
+            room.action_sid = current.sid if current else None
             await _broadcast_room_state(room)
 
 
@@ -85,6 +136,7 @@ async def disconnect(sid: str) -> None:
                 await _broadcast_room_state(room)
             else:
                 player.disconnected_at = time.time()
+                asyncio.create_task(_auto_fold_disconnected(sid, room.id))
             break
 
 
@@ -96,6 +148,10 @@ async def join_room(sid: str, data: dict) -> None:
     room = rooms.get(room_id)
     if not room:
         await sio.emit('error', {'message': 'Room not found'}, to=sid)
+        return
+
+    if room.state == RoomState.FINISHED:
+        await sio.emit('error', {'message': 'Game has ended'}, to=sid)
         return
 
     if room.state == RoomState.PLAYING:
@@ -137,7 +193,10 @@ async def set_ready(sid: str, data: dict) -> None:
 @sio.event
 async def action(sid: str, data: dict) -> None:
     action_type: str = data.get('type', '')
-    amount: int = int(data.get('amount', 0))
+    try:
+        amount: int = int(data.get('amount') or 0)
+    except (ValueError, TypeError):
+        amount = 0
 
     room = next((r for r in rooms.values() if r.get_player(sid)), None)
     if not room or room.state != RoomState.PLAYING or not room.current_hand:
