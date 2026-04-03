@@ -13,8 +13,8 @@ rooms: dict[str, Room] = {}
 
 # Socket.IO async server
 sio = socketio.AsyncServer(
-    async_mode='asgi',
-    cors_allowed_origins='*',
+    async_mode="asgi",
+    cors_allowed_origins="*",
     logger=False,
     engineio_logger=False,
 )
@@ -23,17 +23,17 @@ sio = socketio.AsyncServer(
 app = FastAPI()
 
 
-@app.post('/api/rooms')
+@app.post("/api/rooms")
 async def create_room() -> JSONResponse:
     room = Room()
     rooms[room.id] = room
-    return JSONResponse({'room_id': room.id})
+    return JSONResponse({"room_id": room.id})
 
 
 # Mount Socket.IO as ASGI middleware wrapping FastAPI
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
 # Mount static files if built frontend exists
-_static_dir = os.path.join(os.path.dirname(__file__), '..', 'build')
+_static_dir = os.path.join(os.path.dirname(__file__), "..", "build")
 if os.path.isdir(_static_dir):
-    app.mount('/', StaticFiles(directory=_static_dir, html=True), name='static')
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
