@@ -1,5 +1,3 @@
-# poker/game/tournament.py  — MINIMAL stub for Task 4 tests
-# Full implementation comes in Task 5
 from __future__ import annotations
 import time
 import secrets
