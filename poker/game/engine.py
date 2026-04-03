@@ -138,8 +138,11 @@ class Hand:
             self._num_to_act -= 1
 
         elif action == 'raise':
-            # amount = new total bet for this street
+            # amount = new total bet for this street; must exceed current bet
+            min_amount = self.current_bet + 1
+            amount = max(amount, min_amount)
             delta = min(amount - player.street_bet, player.chips)
+            delta = max(delta, 0)
             player.chips -= delta
             player.street_bet += delta
             player.total_bet_in_hand += delta
@@ -266,13 +269,20 @@ class Hand:
                 merged[sid] = dict(entry)
         merged_summary = list(merged.values())
 
+        # Only reveal cards for players who reached a contested showdown
+        showdown_sids: set[str] = set()
+        for pot in pots:
+            eligible = [p for p in self.players if p.sid in pot.eligible_sids]
+            if len(eligible) > 1:
+                showdown_sids.update(pot.eligible_sids)
+
         return {
             'winners': merged_summary,
             'community_cards': [c.to_dict() for c in self.community_cards],
             'hole_cards': {
                 p.sid: [c.to_dict() for c in p.hole_cards]
                 for p in self.players
-                if p.hole_cards
+                if p.sid in showdown_sids
             },
             'phase': self.phase,
         }

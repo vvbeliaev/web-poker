@@ -29,13 +29,60 @@
 
 	const BLIND_DURATIONS = [180, 180, 120, 120, 120, 120, 120, 120];
 
+	function getPlayerId(): string {
+		let id = localStorage.getItem('poker_pid');
+		if (!id) {
+			id = crypto.randomUUID();
+			localStorage.setItem('poker_pid', id);
+		}
+		return id;
+	}
+
+	function joinRoom(joinName: string, joinAvatar: string) {
+		const socket = connectSocket();
+		socket.emit('join_room', {
+			room_id: roomId,
+			name: joinName,
+			avatar: joinAvatar,
+			player_id: getPlayerId(),
+		});
+	}
+
 	onMount(() => {
 		const socket = connectSocket();
 		gameStore.mySid = socket.id ?? null;
 
-		socket.on('connect', () => {
-			gameStore.mySid = socket.id ?? null;
-		});
+		// Pre-fill name/avatar from any previous session in any room
+		const anyPrev = localStorage.getItem('poker_last_profile');
+		if (anyPrev) {
+			try {
+				const { name: n, avatar: a } = JSON.parse(anyPrev);
+				if (!name) name = n;
+				if (avatar === '🦊') avatar = a;
+			} catch { /* ignore */ }
+		}
+
+		// Auto-reconnect if we've been in this room before
+		const saved = localStorage.getItem(`poker_room_${roomId}`);
+		if (saved) {
+			try {
+				const { name: savedName, avatar: savedAvatar } = JSON.parse(saved);
+				name = savedName;
+				avatar = savedAvatar;
+				nameSubmitted = true;
+				socket.on('connect', () => {
+					gameStore.mySid = socket.id ?? null;
+					joinRoom(savedName, savedAvatar);
+				});
+				if (socket.connected) joinRoom(savedName, savedAvatar);
+			} catch {
+				localStorage.removeItem(`poker_room_${roomId}`);
+			}
+		} else {
+			socket.on('connect', () => {
+				gameStore.mySid = socket.id ?? null;
+			});
+		}
 
 		socket.on('room_state', (state: RoomState) => {
 			const prev = gameStore.roomState;
@@ -103,8 +150,10 @@
 	function submitName() {
 		if (!name.trim()) return;
 		nameSubmitted = true;
-		const socket = connectSocket();
-		socket.emit('join_room', { room_id: roomId, name: name.trim(), avatar });
+		const profile = { name: name.trim(), avatar };
+		localStorage.setItem(`poker_room_${roomId}`, JSON.stringify(profile));
+		localStorage.setItem('poker_last_profile', JSON.stringify(profile));
+		joinRoom(name.trim(), avatar);
 	}
 
 	function handleReady(ready: boolean) {

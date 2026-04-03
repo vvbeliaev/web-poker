@@ -1,6 +1,7 @@
 <!-- src/lib/components/ActionBar.svelte -->
 <script lang="ts">
 	import type { ActionRequired } from '$lib/types';
+	import { playTimerTick } from '$lib/sounds';
 
 	let {
 		actionRequired,
@@ -23,6 +24,7 @@
 			if (timerInterval) clearInterval(timerInterval);
 			timerInterval = setInterval(() => {
 				timeLeft = Math.max(0, timeLeft - 1);
+				if (timeLeft <= 10 && timeLeft > 0) playTimerTick();
 			}, 1000);
 		} else {
 			if (timerInterval) {

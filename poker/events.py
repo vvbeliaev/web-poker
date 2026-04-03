@@ -221,6 +221,7 @@ async def join_room(sid: str, data: dict) -> None:
     room_id: str = data.get('room_id', '')
     name: str = (data.get('name', 'Player') or 'Player')[:20].strip() or 'Player'
     avatar: str = data.get('avatar', DEFAULT_AVATAR)
+    player_id: str = str(data.get('player_id', ''))[:64]
 
     room = rooms.get(room_id)
     if not room:
@@ -231,18 +232,25 @@ async def join_room(sid: str, data: dict) -> None:
         await sio.emit('error', {'message': 'Game has ended'}, to=sid)
         return
 
-    if room.state == RoomState.PLAYING:
-        existing = room.get_player(sid)
-        if not existing:
-            await sio.emit('error', {'message': 'Game in progress'}, to=sid)
+    # Reconnection: player_id matches an existing player in this room
+    if player_id:
+        returning = next((p for p in room.players if p.player_id == player_id), None)
+        if returning:
+            returning.sid = sid
+            returning.disconnected_at = None
+            await sio.enter_room(sid, room_id)
+            await _broadcast_room_state(room)
             return
-    elif len(room.players) >= 9:
+
+    if room.state == RoomState.PLAYING:
+        await sio.emit('error', {'message': 'Game in progress'}, to=sid)
+        return
+
+    if len(room.players) >= 9:
         await sio.emit('error', {'message': 'Table is full'}, to=sid)
         return
 
-    if not room.get_player(sid):
-        room.add_player(sid=sid, name=name, avatar=avatar)
-
+    room.add_player(sid=sid, name=name, avatar=avatar, player_id=player_id)
     await sio.enter_room(sid, room_id)
     await _broadcast_room_state(room)
 

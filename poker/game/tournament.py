@@ -56,6 +56,7 @@ class Player:
     total_bet_in_hand: int = 0
     street_bet: int = 0
     disconnected_at: Optional[float] = None
+    player_id: str = ''  # Stable client UUID for reconnection
 
     def to_dict(self, include_cards: bool = False) -> dict:
         return {
@@ -86,10 +87,10 @@ class Room:
     blind_timer_start: float = field(default_factory=time.time)
     current_hand: Optional[object] = None  # Hand instance
 
-    def add_player(self, sid: str, name: str, avatar: str = DEFAULT_AVATAR) -> Player:
+    def add_player(self, sid: str, name: str, avatar: str = DEFAULT_AVATAR, player_id: str = '') -> Player:
         seat = len(self.players)
         validated_avatar = avatar if avatar in ALLOWED_AVATARS else DEFAULT_AVATAR
-        player = Player(sid=sid, name=name, seat=seat, avatar=validated_avatar)
+        player = Player(sid=sid, name=name, seat=seat, avatar=validated_avatar, player_id=player_id)
         self.players.append(player)
         return player
 
