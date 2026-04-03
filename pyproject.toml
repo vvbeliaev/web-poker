@@ -1,0 +1,18 @@
+[project]
+name = "web-poker"
+version = "0.1.0"
+description = "Web Texas Hold'em tournament"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "python-socketio[asyncio_client]>=5.12",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "httpx>=0.28",
+]
