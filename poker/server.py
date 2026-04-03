@@ -3,7 +3,8 @@ from __future__ import annotations
 import socketio
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.exceptions import HTTPException
 import os
 
 from poker.game.tournament import Room
@@ -33,7 +34,17 @@ async def create_room() -> JSONResponse:
 # Mount Socket.IO as ASGI middleware wrapping FastAPI
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
-# Mount static files if built frontend exists
+# Serve static frontend with SPA fallback
 _static_dir = os.path.join(os.path.dirname(__file__), "..", "build")
 if os.path.isdir(_static_dir):
-    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+    app.mount("/_app", StaticFiles(directory=os.path.join(_static_dir, "_app")), name="app_assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str) -> FileResponse:
+        file_path = os.path.join(_static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        index = os.path.join(_static_dir, "index.html")
+        if os.path.isfile(index):
+            return FileResponse(index)
+        raise HTTPException(status_code=404)
