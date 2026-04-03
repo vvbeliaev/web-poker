@@ -1,120 +1,177 @@
 <!-- src/lib/components/PlayerSeat.svelte -->
 <script lang="ts">
-  import Card from './Card.svelte';
-  import type { PlayerData, CardData } from '$lib/types';
+	import Card from './Card.svelte';
+	import type { PlayerData, CardData } from '$lib/types';
 
-  let {
-    player,
-    isActive,
-    myCards = null,
-    isMe = false,
-  }: {
-    player: PlayerData;
-    isActive: boolean;
-    myCards?: CardData[] | null;
-    isMe?: boolean;
-  } = $props();
+	let {
+		player,
+		isActive,
+		myCards = null,
+		isMe = false
+	}: {
+		player: PlayerData;
+		isActive: boolean;
+		myCards?: CardData[] | null;
+		isMe?: boolean;
+	} = $props();
 
-  const statusColor: Record<string, string> = {
-    active: '#aaa',
-    folded: '#f87171',
-    all_in: '#fb923c',
-    eliminated: '#444',
-  };
-
-  const displayCards = $derived(isMe && myCards ? myCards : null);
+	const displayCards = $derived(isMe && myCards ? myCards : null);
+	const inHand = $derived(player.status !== 'eliminated' && player.status !== 'folded');
 </script>
 
 <div
-  class="seat"
-  class:active={isActive}
-  class:eliminated={player.status === 'eliminated'}
-  class:me={isMe}
+	class="seat"
+	class:active={isActive}
+	class:me={isMe}
+	class:folded={player.status === 'folded'}
+	class:eliminated={player.status === 'eliminated'}
+	class:all-in={player.status === 'all_in'}
 >
-  <div class="cards-row">
-    {#if displayCards}
-      {#each displayCards as card}
-        <Card {card} small />
-      {/each}
-    {:else if player.status !== 'eliminated' && player.status !== 'folded'}
-      <Card card={null} faceDown small />
-      <Card card={null} faceDown small />
-    {/if}
-  </div>
+	<!-- Hole cards -->
+	<div class="cards-row">
+		{#if displayCards}
+			{#each displayCards as card}
+				<Card {card} small />
+			{/each}
+		{:else if inHand}
+			<Card card={null} faceDown small />
+			<Card card={null} faceDown small />
+		{:else}
+			<div class="cards-placeholder"></div>
+		{/if}
+	</div>
 
-  <div class="info">
-    <span class="name">{player.name}{isMe ? ' ★' : ''}</span>
-    <span class="chips">{player.chips.toLocaleString()}</span>
-  </div>
+	<!-- Name + chips -->
+	<div class="info">
+		<span class="name">{player.name}{isMe ? ' ◆' : ''}</span>
+		<span class="chips">{player.chips.toLocaleString()}</span>
+	</div>
 
-  {#if player.street_bet > 0}
-    <div class="bet">Bet {player.street_bet}</div>
-  {/if}
+	<!-- Bet badge -->
+	{#if player.street_bet > 0}
+		<div class="bet">{player.street_bet.toLocaleString()}</div>
+	{/if}
 
-  <div class="status-dot" style="color: {statusColor[player.status] ?? '#aaa'}">
-    {player.status === 'all_in' ? 'ALL IN' : player.status === 'folded' ? 'FOLD' : ''}
-  </div>
+	<!-- Status badge -->
+	{#if player.status === 'all_in'}
+		<div class="badge all-in-badge">ALL IN</div>
+	{:else if player.status === 'folded'}
+		<div class="badge folded-badge">FOLD</div>
+	{/if}
 </div>
 
 <style>
-  .seat {
-    background: #0d0d1a;
-    border: 1px solid #ffffff15;
-    border-radius: 10px;
-    padding: 6px 10px;
-    min-width: 80px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
+	.seat {
+		background: rgba(8, 8, 18, 0.92);
+		border: 1px solid var(--border, rgba(201, 168, 76, 0.08));
+		border-radius: 10px;
+		padding: 6px 9px;
+		min-width: 76px;
+		max-width: 96px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 3px;
+		transition: border-color 0.25s, box-shadow 0.25s, opacity 0.25s;
+		backdrop-filter: blur(4px);
+	}
 
-  .seat.active {
-    border-color: rgba(74, 222, 128, 0.5);
-    box-shadow: 0 0 12px rgba(74, 222, 128, 0.15);
-  }
+	.seat.active {
+		border-color: var(--border-active, rgba(201, 168, 76, 0.55));
+		box-shadow:
+			0 0 0 1px rgba(201, 168, 76, 0.2),
+			0 0 24px rgba(201, 168, 76, 0.25),
+			0 0 60px rgba(201, 168, 76, 0.08);
+	}
 
-  .seat.me { border-color: rgba(232, 201, 106, 0.25); }
-  .seat.eliminated { opacity: 0.35; }
+	.seat.me {
+		border-color: rgba(201, 168, 76, 0.22);
+	}
 
-  .cards-row {
-    display: flex;
-    gap: 3px;
-  }
+	.seat.folded {
+		opacity: 0.45;
+		filter: grayscale(0.5);
+	}
 
-  .info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1px;
-  }
+	.seat.eliminated {
+		opacity: 0.25;
+		filter: grayscale(1);
+	}
 
-  .name {
-    font-size: 11px;
-    color: #ccc;
-    white-space: nowrap;
-    max-width: 80px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+	.cards-row {
+		display: flex;
+		gap: 3px;
+		height: 46px;
+		align-items: center;
+	}
 
-  .chips {
-    font-size: 11px;
-    color: #e8c96a;
-    font-weight: 600;
-  }
+	.cards-placeholder {
+		width: 67px;
+		height: 46px;
+	}
 
-  .bet {
-    font-size: 9px;
-    color: #fb923c;
-    letter-spacing: 0.05em;
-  }
+	.info {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		min-width: 0;
+		width: 100%;
+	}
 
-  .status-dot {
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    min-height: 10px;
-  }
+	.name {
+		font-size: 10px;
+		font-family: var(--font-ui, sans-serif);
+		font-weight: 500;
+		color: var(--text, #e8dfc8);
+		white-space: nowrap;
+		max-width: 78px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		letter-spacing: 0.02em;
+	}
+
+	.seat.me .name {
+		color: var(--gold, #c9a84c);
+	}
+
+	.chips {
+		font-size: 11px;
+		font-family: var(--font-mono, monospace);
+		font-weight: 600;
+		color: var(--gold, #c9a84c);
+		letter-spacing: 0.04em;
+	}
+
+	.bet {
+		font-size: 9px;
+		font-family: var(--font-mono, monospace);
+		color: rgba(234, 108, 20, 0.9);
+		letter-spacing: 0.06em;
+		background: rgba(234, 108, 20, 0.1);
+		border: 1px solid rgba(234, 108, 20, 0.2);
+		border-radius: 3px;
+		padding: 1px 5px;
+	}
+
+	.badge {
+		font-size: 7px;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		border-radius: 2px;
+		padding: 1px 5px;
+		text-transform: uppercase;
+	}
+
+	.all-in-badge {
+		background: rgba(234, 108, 20, 0.15);
+		border: 1px solid rgba(234, 108, 20, 0.35);
+		color: #ea6c14;
+	}
+
+	.folded-badge {
+		background: rgba(100, 80, 60, 0.1);
+		border: 1px solid rgba(100, 80, 60, 0.2);
+		color: rgba(200, 180, 150, 0.4);
+	}
 </style>

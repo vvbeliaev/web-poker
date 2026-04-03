@@ -1,1 +1,43 @@
 @import 'tailwindcss';
+
+:root {
+  --bg:            #06060a;
+  --felt:          #0d1d0c;
+  --felt-center:   #132213;
+  --rail:          #1c0e04;
+  --rail-light:    #3a1f08;
+  --gold:          #c9a84c;
+  --gold-glow:     rgba(201, 168, 76, 0.35);
+  --gold-faint:    rgba(201, 168, 76, 0.1);
+  --green-act:     rgba(74, 222, 128, 0.5);
+  --red-act:       rgba(220, 38, 38, 0.5);
+  --orange-act:    rgba(234, 108, 20, 0.5);
+  --text:          #e8dfc8;
+  --text-dim:      rgba(232, 223, 200, 0.45);
+  --text-muted:    rgba(232, 223, 200, 0.2);
+  --border:        rgba(201, 168, 76, 0.08);
+  --border-active: rgba(201, 168, 76, 0.55);
+  --card-bg:       #f8f2e8;
+  --card-red:      #b91c1c;
+  --card-black:    #1a1610;
+
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-mono:    'JetBrains Mono', monospace;
+  --font-ui:      'Outfit', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+button { font-family: inherit; }
+input  { font-family: inherit; }

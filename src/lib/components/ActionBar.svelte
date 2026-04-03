@@ -1,199 +1,273 @@
 <!-- src/lib/components/ActionBar.svelte -->
 <script lang="ts">
-  import type { ActionRequired } from '$lib/types';
+	import type { ActionRequired } from '$lib/types';
 
-  let {
-    actionRequired,
-    isMyTurn,
-    onAction,
-  }: {
-    actionRequired: ActionRequired | null;
-    isMyTurn: boolean;
-    onAction: (type: string, amount?: number) => void;
-  } = $props();
+	let {
+		actionRequired,
+		isMyTurn,
+		onAction
+	}: {
+		actionRequired: ActionRequired | null;
+		isMyTurn: boolean;
+		onAction: (type: string, amount?: number) => void;
+	} = $props();
 
-  let raiseAmount = $state(0);
-  let timeLeft = $state(0);
-  let timerInterval: ReturnType<typeof setInterval> | null = null;
+	let raiseAmount = $state(0);
+	let timeLeft = $state(0);
+	let timerInterval: ReturnType<typeof setInterval> | null = null;
 
-  $effect(() => {
-    if (actionRequired) {
-      raiseAmount = actionRequired.min_raise;
-      timeLeft = actionRequired.timeout_seconds;
-      if (timerInterval) clearInterval(timerInterval);
-      timerInterval = setInterval(() => {
-        timeLeft = Math.max(0, timeLeft - 1);
-      }, 1000);
-    } else {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  });
+	$effect(() => {
+		if (actionRequired) {
+			raiseAmount = actionRequired.min_raise;
+			timeLeft = actionRequired.timeout_seconds;
+			if (timerInterval) clearInterval(timerInterval);
+			timerInterval = setInterval(() => {
+				timeLeft = Math.max(0, timeLeft - 1);
+			}, 1000);
+		} else {
+			if (timerInterval) {
+				clearInterval(timerInterval);
+				timerInterval = null;
+			}
+		}
+		return () => {
+			if (timerInterval) clearInterval(timerInterval);
+		};
+	});
 
-  const canRaise = $derived(actionRequired?.options.includes('raise') ?? false);
-  const callAmount = $derived(actionRequired?.call_amount ?? 0);
-  const timerPct = $derived(
-    actionRequired ? (timeLeft / actionRequired.timeout_seconds) * 100 : 0
-  );
-  const urgent = $derived(timeLeft <= 10);
+	const canRaise = $derived(actionRequired?.options.includes('raise') ?? false);
+	const callAmount = $derived(actionRequired?.call_amount ?? 0);
+	const timerPct = $derived(actionRequired ? (timeLeft / actionRequired.timeout_seconds) * 100 : 0);
+	const urgent = $derived(timeLeft <= 10);
 </script>
 
-{#if isMyTurn && actionRequired}
-  <div class="action-bar">
-    <div class="timer-track">
-      <div
-        class="timer-bar"
-        class:urgent
-        style="width: {timerPct}%"
-      ></div>
-      <span class="timer-label" class:urgent>{timeLeft}s</span>
-    </div>
+<div class="action-bar" class:my-turn={isMyTurn && actionRequired}>
+	{#if isMyTurn && actionRequired}
+		<!-- Turn timer -->
+		<div class="timer-row">
+			<div class="timer-track">
+				<div class="timer-fill" class:urgent style="width: {timerPct}%"></div>
+			</div>
+			<span class="timer-num" class:urgent>{timeLeft}s</span>
+		</div>
 
-    <div class="buttons">
-      <button class="btn fold" onclick={() => onAction('fold')}>Fold</button>
+		<!-- Action buttons -->
+		<div class="buttons">
+			<button class="btn fold" onclick={() => onAction('fold')}>
+				<span class="btn-label">Fold</span>
+			</button>
 
-      <button class="btn call" onclick={() => onAction('call')}>
-        {callAmount === 0 ? 'Check' : `Call ${callAmount}`}
-      </button>
+			<button class="btn call" onclick={() => onAction('call')}>
+				<span class="btn-label">{callAmount === 0 ? 'Check' : 'Call'}</span>
+				{#if callAmount > 0}
+					<span class="btn-amount">{callAmount.toLocaleString()}</span>
+				{/if}
+			</button>
 
-      {#if canRaise}
-        <div class="raise-group">
-          <button class="btn raise" onclick={() => onAction('raise', raiseAmount)}>
-            Raise
-          </button>
-          <input
-            type="number"
-            bind:value={raiseAmount}
-            min={actionRequired.min_raise}
-            max={actionRequired.max_raise}
-            step={actionRequired.min_raise}
-            class="raise-input"
-          />
-        </div>
-      {/if}
+			{#if canRaise}
+				<div class="raise-group">
+					<button class="btn raise" onclick={() => onAction('raise', raiseAmount)}>
+						<span class="btn-label">Raise</span>
+						<span class="btn-amount">{raiseAmount.toLocaleString()}</span>
+					</button>
+					<input
+						type="number"
+						bind:value={raiseAmount}
+						min={actionRequired.min_raise}
+						max={actionRequired.max_raise}
+						step={actionRequired.min_raise}
+						class="raise-input"
+					/>
+				</div>
+			{/if}
 
-      <button class="btn allin" onclick={() => onAction('all_in')}>All In</button>
-    </div>
-  </div>
-{:else}
-  <div class="action-bar waiting">
-    <span>Waiting for other players…</span>
-  </div>
-{/if}
+			<button class="btn allin" onclick={() => onAction('all_in')}>
+				<span class="btn-label">All In</span>
+			</button>
+		</div>
+	{:else}
+		<div class="waiting">
+			<span class="waiting-dots">
+				<span></span><span></span><span></span>
+			</span>
+			<span class="waiting-text">Waiting for other players</span>
+		</div>
+	{/if}
+</div>
 
 <style>
-  .action-bar {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 16px;
-    background: #0d0d1a;
-    border: 1px solid #ffffff10;
-    border-radius: 10px;
-  }
+	.action-bar {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 0 16px;
+		gap: 8px;
+		border-top: 1px solid rgba(201, 168, 76, 0.06);
+		background: rgba(6, 6, 10, 0.96);
+	}
 
-  .action-bar.waiting {
-    align-items: center;
-    justify-content: center;
-    color: #444;
-    font-size: 0.85rem;
-    letter-spacing: 0.05em;
-  }
+	.timer-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		max-width: 480px;
+	}
 
-  .timer-track {
-    position: relative;
-    height: 3px;
-    background: #1a1a2e;
-    border-radius: 2px;
-    overflow: visible;
-  }
+	.timer-track {
+		flex: 1;
+		height: 2px;
+		background: rgba(255, 255, 255, 0.06);
+		border-radius: 1px;
+		overflow: hidden;
+	}
 
-  .timer-bar {
-    height: 100%;
-    background: #4ade80;
-    border-radius: 2px;
-    transition: width 1s linear, background 0.3s;
-  }
+	.timer-fill {
+		height: 100%;
+		background: var(--gold, #c9a84c);
+		border-radius: 1px;
+		transition: width 1s linear, background 0.4s;
+	}
 
-  .timer-bar.urgent { background: #f87171; }
+	.timer-fill.urgent { background: #dc2626; }
 
-  .timer-label {
-    position: absolute;
-    right: 0;
-    top: -16px;
-    font-size: 10px;
-    color: #4ade80;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    transition: color 0.3s;
-  }
+	.timer-num {
+		font-family: var(--font-mono, monospace);
+		font-size: 10px;
+		font-weight: 600;
+		color: var(--gold, #c9a84c);
+		min-width: 24px;
+		text-align: right;
+		transition: color 0.4s;
+	}
 
-  .timer-label.urgent { color: #f87171; }
+	.timer-num.urgent { color: #dc2626; }
 
-  .buttons {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: center;
-  }
+	.buttons {
+		display: flex;
+		gap: 6px;
+		align-items: stretch;
+	}
 
-  .btn {
-    padding: 8px 18px;
-    border-radius: 7px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.15s;
-  }
+	.btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 8px 20px;
+		border-radius: 4px;
+		cursor: pointer;
+		border: 1px solid transparent;
+		transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+		background: transparent;
+		gap: 1px;
+		min-width: 72px;
+	}
 
-  .fold {
-    background: transparent;
-    border-color: rgba(248, 113, 113, 0.3);
-    color: #f87171;
-  }
-  .fold:hover { border-color: rgba(248, 113, 113, 0.7); }
+	.btn-label {
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
 
-  .call {
-    background: transparent;
-    border-color: rgba(255, 255, 255, 0.15);
-    color: #aaa;
-  }
-  .call:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
+	.btn-amount {
+		font-family: var(--font-mono, monospace);
+		font-size: 10px;
+		opacity: 0.75;
+		letter-spacing: 0.04em;
+	}
 
-  .raise-group {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
+	.fold {
+		border-color: rgba(220, 38, 38, 0.25);
+		color: #f87171;
+	}
+	.fold:hover {
+		border-color: rgba(220, 38, 38, 0.6);
+		background: rgba(220, 38, 38, 0.06);
+	}
 
-  .raise {
-    background: #1a3a1a;
-    border-color: rgba(74, 222, 128, 0.3);
-    color: #4ade80;
-  }
-  .raise:hover { border-color: rgba(74, 222, 128, 0.6); }
+	.call {
+		border-color: rgba(255, 255, 255, 0.12);
+		color: var(--text, #e8dfc8);
+	}
+	.call:hover {
+		border-color: rgba(255, 255, 255, 0.28);
+		background: rgba(255, 255, 255, 0.04);
+	}
 
-  .raise-input {
-    width: 68px;
-    background: #0d0d1a;
-    border: 1px solid #ffffff15;
-    border-radius: 6px;
-    padding: 7px 6px;
-    color: #e8c96a;
-    font-size: 12px;
-    text-align: center;
-  }
+	.raise-group {
+		display: flex;
+		gap: 4px;
+		align-items: stretch;
+	}
 
-  .allin {
-    background: transparent;
-    border-color: rgba(251, 146, 60, 0.3);
-    color: #fb923c;
-  }
-  .allin:hover { border-color: rgba(251, 146, 60, 0.7); }
+	.raise {
+		border-color: rgba(201, 168, 76, 0.3);
+		color: var(--gold, #c9a84c);
+	}
+	.raise:hover {
+		border-color: rgba(201, 168, 76, 0.65);
+		background: rgba(201, 168, 76, 0.06);
+		box-shadow: 0 0 16px rgba(201, 168, 76, 0.1);
+	}
+
+	.raise-input {
+		width: 64px;
+		background: rgba(201, 168, 76, 0.04);
+		border: 1px solid rgba(201, 168, 76, 0.15);
+		border-radius: 4px;
+		padding: 6px;
+		color: var(--gold, #c9a84c);
+		font-family: var(--font-mono, monospace);
+		font-size: 11px;
+		text-align: center;
+		outline: none;
+	}
+
+	.raise-input:focus {
+		border-color: rgba(201, 168, 76, 0.4);
+	}
+
+	.allin {
+		border-color: rgba(234, 108, 20, 0.25);
+		color: #fb923c;
+	}
+	.allin:hover {
+		border-color: rgba(234, 108, 20, 0.6);
+		background: rgba(234, 108, 20, 0.06);
+	}
+
+	.waiting {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		color: var(--text-muted, rgba(232, 223, 200, 0.2));
+		font-size: 0.75rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.waiting-dots {
+		display: flex;
+		gap: 4px;
+	}
+
+	.waiting-dots span {
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: currentColor;
+		animation: blink 1.4s ease-in-out infinite;
+	}
+
+	.waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+	.waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+	@keyframes blink {
+		0%, 80%, 100% { opacity: 0.2; }
+		40%            { opacity: 0.7; }
+	}
 </style>
